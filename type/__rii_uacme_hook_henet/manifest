@@ -1,0 +1,125 @@
+#!/bin/sh -e
+#
+# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+#
+# This file is part of the __rii skonfig type set.
+#
+# __rii is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# __rii is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with __rii. If not, see <http://www.gnu.org/licenses/>.
+#
+
+shquot() {
+	sed -e "s/'/'\\\\''/g" -e "1s/^/'/" -e "\$s/\$/'/" <<-EOF
+	$*
+	EOF
+}
+
+read -r os <"${__global:?}/explorer/os"
+read -r dns_impl <"${__object:?}/explorer/dns-impl"
+read -r state_should <"${__object:?}/parameter/state"
+
+case ${os}
+in
+	(openwrt)
+		scripts_dir=/usr/share/uacme
+		;;
+	(*)
+		scripts_dir=/usr/local/share/uacme
+		;;
+esac
+
+case ${state_should}
+in
+	(present)
+		__package curl
+
+		case ${os}
+		in
+			(alpine)
+				case ${dns_impl}
+				in
+					(dig|nslookup)
+						__package_apk bind-tools
+						;;
+					(drill)
+						__package_apk drill
+						;;
+				esac
+
+				script_dirmode=0775
+				;;
+			(debian|devuan|ubuntu)
+				case ${dns_impl}
+				in
+					(dig|nslookup)
+						__package_apt bind9-dnsutils
+						;;
+					(drill)
+						__package_apt ldnsutils
+						;;
+				esac
+
+				# /usr/local is setgid staff
+				script_dirmode=2775
+				;;
+			(openwrt)
+				case ${dns_impl}
+				in
+					(dig|nslookup)
+						__package_opkg "bind-${dns_impl}"
+						;;
+					(drill)
+						__package_opkg drill
+						;;
+				esac
+
+				script_dirmode=0755
+				;;
+			(*)
+				printf 'Unsupported OS: %s\n' "${os}" >&2
+				printf 'Please provide a patch, if you can.\n' >&2
+				exit 1
+				;;
+		esac
+
+		__directory "${scripts_dir}" \
+			--owner 0 --mode "${script_dirmode}" \
+			--parents
+
+		export require="__directory${scripts_dir}"
+
+		# Preprocess scripts
+		mkdir "${__object:?}/files"
+
+		password=$(cat "${__object:?}/parameter/password")
+
+		# NOTE: Sequences like %%XYZ%% in the script will be replaced with
+		#       the values of the respective SCR_XYZ environment variable.
+		DNS_IMPL="${__type:?}/files/dns/${dns_impl}.sh" \
+		SCR_PASSWORD=$(shquot ${password}) \
+		"${__type:?}/files/pp.awk" "${__type:?}/files/hook.sh" \
+		>"${__object:?}/files/hook.sh"
+		;;
+	(absent)
+		;;
+	(*)
+		printf 'Invalid --state: %s\n' "${state_should}" >&2
+		exit 1
+		;;
+esac
+
+# manage script
+__file "${scripts_dir}/hook.henet.sh" \
+	--state "${state_should}" \
+	--owner 0 --group 0 --mode 0750 \
+	--source "${__object:?}/files/hook.sh"

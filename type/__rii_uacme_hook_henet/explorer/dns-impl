@@ -1,0 +1,40 @@
+#!/bin/sh -e
+#
+# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+#
+# This file is part of the __rii skonfig type set.
+#
+# __rii is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# __rii is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with __rii. If not, see <http://www.gnu.org/licenses/>.
+#
+# prints the name of a supported DNS implementation if it is already installed
+# or a "sensible" (in the mind of the author) default for the OS.
+
+os=$("${__explorer:?}/os")
+
+# check in order of preference
+if command -v dig >/dev/null 2>&1
+then
+	echo dig
+# elif command -v drill >/dev/null 2>&1
+# then
+# 	echo drill
+elif command -v nslookup >/dev/null 2>&1 \
+	&& ! ls -l "$(command -v nslookup)" | grep ' -> .*busybox$' >/dev/null
+then
+	echo nslookup
+else
+	# "sensible" default: drill (usually more lightweight than the BIND 9
+	# alternatives)
+	echo drill
+fi
