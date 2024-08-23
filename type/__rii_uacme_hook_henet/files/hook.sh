@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+# 2023,2024 Dennis Camera (dennis.camera at riiengineering.ch)
 #
 # This file is part of the __rii_uacme_hook_henet skonfig type.
 #
@@ -20,6 +20,37 @@
 set -e -u
 
 #include $DNS_IMPL
+
+#include $HTTP_IMPL
+
+dnshenet_update() {
+	# usage: dnshenet_update hostname password auth
+	response=$(http_post 'https://dyn.dns.he.net/nic/update' \
+			-d hostname="${1:?}" \
+			-d password="${2:?}" \
+			-d txt="${3:?}")
+
+	case ${response}
+	in
+		(good*)
+			echo 'good'
+			return 0
+			;;
+		(badauth)
+			echo 'badauth: Authentication failed.' >&2
+			return 1
+			;;
+		(nochg*)
+			printf '%s\n' "${response}"
+			return 0
+			;;
+		(*)
+			printf '%s\n' "${response}"
+			return 1
+			;;
+	esac
+}
+
 
 case $#
 in
@@ -48,31 +79,7 @@ in
 			(dns-01)
 				hostname=$(resolve_cnames "_acme-challenge.${ident}")
 
-				response=$(
-					curl -sS 'https://dyn.dns.he.net/nic/update' \
-						-d hostname="${hostname}" \
-						-d password=%%PASSWORD%% \
-						-d txt="${auth}")
-
-				case ${response}
-				in
-					(good*)
-						echo 'good'
-						exit 0
-						;;
-					(badauth)
-						echo 'badauth: Authentication failed.' >&2
-						exit 1
-						;;
-					(nochg*)
-						printf '%s\n' "${response}"
-						exit 0
-						;;
-					(*)
-						printf '%s\n' "${response}"
-						exit 1
-						;;
-				esac
+				dnshenet_update "${hostname}" %%PASSWORD%% "${auth}" || exit
 
 				henet_server=ns5.he.net
 				i=0
@@ -81,15 +88,17 @@ in
 					case $(dns_query "${henet_server}" TXT "${hostname}")
 					in
 						("\"${auth}\"")
-							echo OK
+							echo 'DNS was updated.'
 							break
 							;;
 						(*)
-							printf '%s did not respond with correct token.'
+							printf '%s did not respond with correct token. ' "${henet_server}"
 							;;
 					esac
 
 					: $((i += 1))
+
+					printf 're-trying in 30s.\n'
 					sleep 30
 				done
 				;;

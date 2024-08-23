@@ -1,6 +1,6 @@
 #!/bin/sh -e
 #
-# 2023 Dennis Camera (dennis.camera at riiengineering.ch)
+# 2023,2024 Dennis Camera (dennis.camera at riiengineering.ch)
 #
 # This file is part of the __rii skonfig type set.
 #
@@ -26,6 +26,7 @@ shquot() {
 
 read -r os <"${__global:?}/explorer/os"
 read -r dns_impl <"${__object:?}/explorer/dns-impl"
+read -r http_impl <"${__object:?}/explorer/http-impl"
 read -r state_should <"${__object:?}/parameter/state"
 
 case ${os}
@@ -41,11 +42,19 @@ esac
 case ${state_should}
 in
 	(present)
-		__package curl
-
 		case ${os}
 		in
 			(alpine)
+				case ${http_impl}
+				in
+					(curl)
+						__package_apt curl
+						;;
+					(wget)
+						__package_apt wget
+						;;
+				esac
+
 				case ${dns_impl}
 				in
 					(dig|nslookup)
@@ -59,6 +68,16 @@ in
 				script_dirmode=0775
 				;;
 			(debian|devuan|ubuntu)
+				case ${http_impl}
+				in
+					(curl)
+						__package_apt curl
+						;;
+					(wget)
+						__package_apt wget
+						;;
+				esac
+
 				case ${dns_impl}
 				in
 					(dig|nslookup)
@@ -73,6 +92,16 @@ in
 				script_dirmode=2775
 				;;
 			(openwrt)
+				case ${http_impl}
+				in
+					(curl)
+						__package curl
+						;;
+					(wget)
+						__package uclient-fetch
+						;;
+				esac
+
 				case ${dns_impl}
 				in
 					(dig|nslookup)
@@ -106,6 +135,7 @@ in
 		# NOTE: Sequences like %%XYZ%% in the script will be replaced with
 		#       the values of the respective SCR_XYZ environment variable.
 		DNS_IMPL="${__type:?}/files/dns/${dns_impl}.sh" \
+		HTTP_IMPL="${__type:?}/files/http/${http_impl}.sh" \
 		SCR_PASSWORD=$(shquot ${password}) \
 		"${__type:?}/files/pp.awk" "${__type:?}/files/hook.sh" \
 		>"${__object:?}/files/hook.sh"
