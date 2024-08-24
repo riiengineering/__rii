@@ -1,4 +1,4 @@
-http_post() {
-	# usage: http_post url [-d post_data...]
-	curl -sS "$@"
+http_get_auth() {
+	# usage: http_get_auth url user password
+	curl -sS -u "${2:?}:${3:?}" "${1:?}"
 }

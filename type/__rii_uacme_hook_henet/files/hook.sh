@@ -23,12 +23,29 @@ set -e -u
 
 #include $HTTP_IMPL
 
-dnshenet_update() {
-	# usage: dnshenet_update hostname password auth
-	response=$(http_post 'https://dyn.dns.he.net/nic/update' \
-			-d hostname="${1:?}" \
-			-d password="${2:?}" \
-			-d txt="${3:?}")
+dnshenet_update_txt() {
+	# usage: dnshenet_update_txt hostname password auth
+
+	case ${1#_acme-challenge.}
+	in
+		(*[!A-Za-z0-9.-]*)
+			printf '%s: is not a valid hostname (did you forget to punycode?)\n' "${1:?}" >&2
+			return 2
+			;;
+	esac
+
+	case ${3:?}
+	in
+		(*[!A-Za-z0-9.~_-]*)
+			printf 'The auth token contains characters which would need to be urlencoded. This is not supported currently.\n' >&2
+			return 2
+			;;
+	esac
+
+	response=$(http_get_auth \
+		"https://dyn.dns.he.net/nic/update?hostname=${1:?}&txt=${3:?}" \
+		"${1:?}" \
+		"${2:?}")
 
 	case ${response}
 	in
@@ -79,7 +96,7 @@ in
 			(dns-01)
 				hostname=$(resolve_cnames "_acme-challenge.${ident}")
 
-				dnshenet_update "${hostname}" %%PASSWORD%% "${auth}" || exit
+				dnshenet_update_txt "${hostname}" %%PASSWORD%% "${auth}" || exit
 
 				henet_server=ns5.he.net
 				i=0
