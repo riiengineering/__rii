@@ -39,5 +39,5 @@ resolve_cnames() (
 )
 
 dns_query() {
-	drill -Q "$3" @"$1" "$2" IN +noall +short
+	drill -Q "$3" @"$1" "$2" IN
 }
