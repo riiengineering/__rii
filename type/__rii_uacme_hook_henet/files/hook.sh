@@ -100,25 +100,30 @@ in
 
 				sleep 10
 
-				henet_server=ns5.he.net
-				i=0
-				while test $((i)) -lt 10
+				henet_dns_server=ns5.he.net
+				i=1
+				dns_check_tries=5
+				while :
 				do
-					case $(dns_query "${henet_server}" TXT "${hostname}")
+					case $(dns_query "${henet_dns_server}" TXT "${hostname}")
 					in
 						("\"${auth}\"")
 							echo 'DNS was updated.'
 							break
 							;;
 						(*)
-							printf '%s did not respond with correct token. ' "${henet_server}"
+							printf '(%u/%u) %s did not respond with correct token. ' $((i)) $((dns_check_tries)) "${henet_dns_server}"
 							;;
 					esac
 
-					: $((i += 1))
-
-					printf 're-trying in 30s.\n'
-					sleep 30
+					if test $((i += 1)) -le $((dns_check_tries))
+					then
+						printf 're-trying in 30s.\n'
+						sleep 30
+					else
+						printf '\nDNS server failed to update. Aborting.\n' >&2
+						exit 1
+					fi
 				done
 				;;
 			(tls-alpn-01)
