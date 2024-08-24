@@ -98,6 +98,8 @@ in
 
 				dnshenet_update_txt "${hostname}" %%PASSWORD%% "${auth}" || exit
 
+				sleep 10
+
 				henet_server=ns5.he.net
 				i=0
 				while test $((i)) -lt 10
