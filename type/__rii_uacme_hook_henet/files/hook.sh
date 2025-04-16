@@ -28,7 +28,8 @@ dnshenet_update_txt() {
 
 	case ${1#_acme-challenge.}
 	in
-		(*[!A-Za-z0-9.-]*)
+		# NOTE: _ is not actually allowed, that's why ACME uses it. We also allow it here in case users want to use underscores in their CNAME chains :D
+		(*[!A-Za-z0-9._-]*)
 			printf '%s: is not a valid hostname (did you forget to punycode?)\n' "${1:?}" >&2
 			return 2
 			;;
